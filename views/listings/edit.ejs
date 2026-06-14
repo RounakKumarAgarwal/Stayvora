@@ -1,0 +1,150 @@
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<% layout ("/layouts/boilerplate") %>
+    <div class="row mt-3">
+        <div class="col-8 offset-2">
+
+            <h1>Edit your Listing</h1>
+            <form action="/listings/<%= listing._id %>?_method=PUT" method="POST" novalidate class="needs-validation"
+                enctype="multipart/form-data">
+                <!-- names are turned into object of listings  -->
+                <div class="mb-3">
+                    <label for="title" class="form-label">Title</label>
+                    <input name="listing[title]" value="<%= listing.title %>" type="text" class="form-control" required>
+                    <div class="valid-feedback">Title looks good</div>
+                </div>
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea name="listing[description]" class="form-control"
+                        required><%= listing.description %></textarea>
+                    <div class="invalid-feedback">Please enter a short description</div>
+                </div>
+                <div class="mb-3">
+                    <label for="image" class="form-label">Upload New Image</label>
+                    <input name="listing[image]" type="file" class="form-control">
+                </div>
+                <div class="mb-3">
+                    Original Listing Image <br>
+                    <img src="<%= originalImageUrl %>" alt="Listing Image" class="img-thumbnail preview-img">
+                </div>
+                <div class="row">
+                    <div class="mb-3 col-md-4">
+                        <label for="price" class="form-label">Price</label>
+                        <input name="listing[price]" value="<%= listing.price %>" type="number" class="form-control"
+                            required>
+                        <div class="invalid-feedback">price should be valid </div>
+                    </div>
+                    <div class="mb-3 col-md-4 col-lg-8">
+                        <label for="country" class="form-label">Country</label>
+                        <input name="listing[country]" value="<%= listing.country %>" type="text" class="form-control"
+                            required>
+                        <div class="invalid-feedback">Country should be valid </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="location" class="form-label">Location</label>
+                    <input name="listing[location]" value="<%= listing.location %>" type="text" class="form-control"
+                        required>
+                    <div class="invalid-feedback">location should be valid</div>
+                </div>
+
+                <h5>Update Location</h5>
+                <div class="d-flex gap-2 mb-2">
+                    <button type="button" id="searchLocationBtn" class="btn btn-outline-secondary btn-sm">
+                        🔍 Find on Map
+                    </button>
+                    <span id="geocodeStatus" class="text-muted small align-self-center"></span>
+                </div>
+                <small class="text-muted d-block mb-1">Or click directly on the map to pin a location</small>
+                <div id="map"></div>
+                <input type="hidden" name="listing[geometry][lat]" id="lat"
+                    value="<%= listing.geometry ? listing.geometry.lat : '' %>">
+                <input type="hidden" name="listing[geometry][lng]" id="lng"
+                    value="<%= listing.geometry ? listing.geometry.lng : '' %>">
+                <style>
+                    #map {
+                        height: 400px;
+                        width: 100%;
+                        margin-top: 10px;
+                        margin-bottom: 10px;
+                        border-radius: 12px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                    }
+                </style>
+
+                <button class="btn btn-dark edit-btn mt-3 mb-3">Edit</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const existingLat = parseFloat("<%= listing.geometry ? listing.geometry.lat : '20.5937' %>");
+        const existingLng = parseFloat("<%= listing.geometry ? listing.geometry.lng : '78.9629' %>");
+        const hasGeometry = !isNaN(existingLat) && !isNaN(existingLng);
+
+        const map = L.map('map').setView(
+            hasGeometry ? [existingLat, existingLng] : [20.5937, 78.9629],
+            hasGeometry ? 13 : 5
+        );
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        }).addTo(map);
+
+        let marker;
+        if (hasGeometry) {
+            marker = L.marker([existingLat, existingLng]).addTo(map);
+        }
+
+        map.on('click', function (e) {
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
+
+            document.getElementById('lat').value = lat;
+            document.getElementById('lng').value = lng;
+
+            if (marker) {
+                map.removeLayer(marker);
+            }
+            marker = L.marker([lat, lng]).addTo(map);
+        });
+
+        // "Find on Map" button — geocodes the current location + country fields
+        document.getElementById('searchLocationBtn').addEventListener('click', async function () {
+            const locationVal = document.querySelector('input[name="listing[location]"]').value.trim();
+            const countryVal  = document.querySelector('input[name="listing[country]"]').value.trim();
+            const statusEl    = document.getElementById('geocodeStatus');
+
+            if (!locationVal) {
+                statusEl.textContent = 'Please enter a location first.';
+                return;
+            }
+
+            statusEl.textContent = 'Searching…';
+            const query = encodeURIComponent(`${locationVal}${countryVal ? ', ' + countryVal : ''}`);
+
+            try {
+                const res  = await fetch(`https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`);
+                const data = await res.json();
+
+                if (!data.length) {
+                    statusEl.textContent = 'Location not found. Try being more specific.';
+                    return;
+                }
+
+                const lat = parseFloat(data[0].lat);
+                const lng = parseFloat(data[0].lon);
+
+                document.getElementById('lat').value = lat;
+                document.getElementById('lng').value = lng;
+
+                if (marker) map.removeLayer(marker);
+                marker = L.marker([lat, lng]).addTo(map);
+                map.setView([lat, lng], 13);
+                statusEl.textContent = '✓ Location found';
+            } catch (err) {
+                statusEl.textContent = 'Search failed. You can still click the map.';
+            }
+        });
+    </script>

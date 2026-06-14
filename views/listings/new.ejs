@@ -1,0 +1,121 @@
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<% layout ("/layouts/boilerplate") %>
+    <div class="row mt-3">
+        <div class="col-8 offset-2">
+            <br><br>
+            <h1>Create a new Listing</h1>
+            <form method="POST" action="/listings" novalidate class="needs-validation" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <label for="title" class="form-label">Title</label>
+                    <!-- names are turned into object of listings  -->
+                    <input name="listing[title]" placeholder="Add a catchy title" type="text" class="form-control"
+                        required>
+                    <div class="valid-feedback">Title looks good</div>
+                </div>
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea name="listing[description]" type="text" class="form-control" required></textarea>
+                    <div class="invalid-feedback">Please enter a short validation</div>
+                </div>
+                <!-- <div class="mb-3">
+                    <label for="image" class="form-label">Image Link</label>
+                    <input name="listing[image][url]" placeholder="Enter image URL/Link" type="text"
+                        class="form-control">
+                    <div class="invalid-feedback">Please enter a valid link for image</div>
+                </div> -->
+                <div class="mb-3">
+                    <label for="image" class="form-label">Upload Listing Image</label>
+                    <input name="listing[image]" type="file" class="form-control">
+                    <div class="invalid-feedback">Please enter a valid link for image</div>
+                </div>
+                <div class="row">
+                    <div class=" mb-3 col-md-4">
+                        <label for="price" class="form-label">Price</label>
+                        <input name="listing[price]" placeholder="1200" type="number" class="form-control " required>
+                        <div class="invalid-feedback">price should be valid </div>
+                    </div>
+
+                    <div class="mb-3 col-md-8">
+                        <label for="country" class="form-label">Country</label>
+                        <input name="listing[country]" placeholder="India" type="text" class="form-control" required>
+                        <div class="invalid-feedback">Country should be valid </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="location" class="form-label">Location</label>
+                    <input name="listing[location]" placeholder="Jaipur,Rajasthan" type="text" class="form-control"
+                        required>
+                    <div class="invalid-feedback">location should be valid</div>
+                </div>
+                <h5>Select Location</h5>
+                <div id="map"></div>
+                <input type="hidden" name="listing[geometry][lat]" id="lat" required>
+                <input type="hidden" name="listing[geometry][lng]" id="lng" required>
+                <style>
+                    #map {
+                        height: 400px;
+                        width: 100%;
+                        margin-top: 10px;
+                    }
+                </style>
+                <button type="submit" class="btn btn-dark add-btn mt-3 mb-3">Add</button>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        const map = L.map('map').setView([20, 0], 2);
+
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        let marker;
+
+        function placeMarker(lat, lng) {
+            document.getElementById('lat').value = lat;
+            document.getElementById('lng').value = lng;
+            if (marker) map.removeLayer(marker);
+            marker = L.marker([lat, lng]).addTo(map);
+            map.setView([lat, lng], 10);
+        }
+
+        // Click on map to place marker manually
+        map.on('click', function (e) {
+            placeMarker(e.latlng.lat, e.latlng.lng);
+        });
+
+        // Auto-place marker when user types in Location or Country field
+        const locationInput = document.querySelector('input[name="listing[location]"]');
+        const countryInput  = document.querySelector('input[name="listing[country]"]');
+        let geocodeTimer;
+
+        function geocode() {
+            const query = (locationInput.value + ' ' + countryInput.value).trim();
+            if (query.length < 3) return;
+
+            clearTimeout(geocodeTimer);
+            geocodeTimer = setTimeout(async () => {
+                try {
+                    const res = await fetch(
+                        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`,
+                        { headers: { 'Accept-Language': 'en' } }
+                    );
+                    const data = await res.json();
+                    if (data.length > 0) {
+                        placeMarker(parseFloat(data[0].lat), parseFloat(data[0].lon));
+                    }
+                } catch (e) {
+                    console.log('Geocode error:', e);
+                }
+            }, 800);
+        }
+
+        locationInput.addEventListener('input', geocode);
+        countryInput.addEventListener('input', geocode);
+    </script>
+    
+    
