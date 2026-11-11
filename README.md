@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # Stayvora 🏡
 
 Stayvora is a modern full-stack accommodation booking platform inspired by the idea of seamless travel, comfortable stays, and memorable experiences. Users can explore properties, view detailed listings, upload images, leave reviews, and manage bookings through an intuitive interface.
